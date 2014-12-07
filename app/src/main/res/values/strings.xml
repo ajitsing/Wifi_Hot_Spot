@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Wifi Hot Spot</string>
+    <string name="enableWifiHotSpot">Wifi Hot Spot</string>
+    <string name="enableData">Enable Data</string>
+    <string name="action_settings">Enable Data</string>
+</resources>
