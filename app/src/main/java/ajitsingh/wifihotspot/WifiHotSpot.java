@@ -7,7 +7,6 @@ import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.CheckBox;
-import android.widget.Toast;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -34,13 +33,8 @@ public class WifiHotSpot extends Activity {
 
             @Override
             public void onClick(View v) {
-                if (((CheckBox) v).isChecked()) {
-                    Toast.makeText(WifiHotSpot.this, "setting wifi hot spot", Toast.LENGTH_SHORT).show();
-                    setWifiTetheringEnabled(true);
-                } else {
-                    Toast.makeText(WifiHotSpot.this, "turning wifi hot spot off", Toast.LENGTH_SHORT).show();
-                    setWifiTetheringEnabled(false);
-                }
+                boolean flag = ((CheckBox) v).isChecked();
+                setWifiTetheringEnabled(flag);
             }
         });
 
@@ -52,13 +46,8 @@ public class WifiHotSpot extends Activity {
 
             @Override
             public void onClick(View v) {
-                if (((CheckBox) v).isChecked()) {
-                    Toast.makeText(WifiHotSpot.this, "data is enabled", Toast.LENGTH_SHORT).show();
-                    setMobileDataEnabled(true);
-                } else {
-                    Toast.makeText(WifiHotSpot.this, "data is turned off", Toast.LENGTH_SHORT).show();
-                    setMobileDataEnabled(false);
-                }
+                boolean flag = ((CheckBox) v).isChecked();
+                setMobileDataEnabled(flag);
             }
         });
 
@@ -68,14 +57,16 @@ public class WifiHotSpot extends Activity {
         WifiManager wifiManager = (WifiManager) getSystemService(WIFI_SERVICE);
 
         Method[] methods = wifiManager.getClass().getDeclaredMethods();
-        for (Method method : methods) {
-            if (method.getName().equals("setWifiApEnabled")) {
-                try {
-                    method.invoke(wifiManager, null, enable);
-                } catch (Exception ignored) {
-                }
-                break;
-            }
+
+        try {
+            Boolean wifiTetheringEnabled = (Boolean) getMethod(methods, "isWifiApEnabled").invoke(wifiManager);
+
+            boolean enableTethering = enable && !wifiTetheringEnabled;
+            boolean disableTethering = !enable && wifiTetheringEnabled;
+
+            if (disableTethering || enableTethering)
+                getMethod(methods, "setWifiApEnabled").invoke(wifiManager, null, enable);
+        } catch (Exception ignored) {
         }
     }
 
@@ -87,12 +78,29 @@ public class WifiHotSpot extends Activity {
             connectivityManagerField.setAccessible(true);
             final Object connectivityManager = connectivityManagerField.get(conman);
             final Class connectivityManagerClass = Class.forName(connectivityManager.getClass().getName());
+
             final Method setMobileDataEnabledMethod = connectivityManagerClass.getDeclaredMethod("setMobileDataEnabled", Boolean.TYPE);
+            final Method getMobileDataEnabled = connectivityManagerClass.getDeclaredMethod("getMobileDataEnabled");
+
             setMobileDataEnabledMethod.setAccessible(true);
 
-            setMobileDataEnabledMethod.invoke(connectivityManager, enabled);
-        } catch(Exception ignored) {
-            System.out.println(ignored.getStackTrace());
+            boolean turnOffData = !enabled && (Boolean) getMobileDataEnabled.invoke(connectivityManager);
+            boolean turnOnData = enabled && !(Boolean) getMobileDataEnabled.invoke(connectivityManager);
+
+            if (turnOnData || turnOffData)
+                setMobileDataEnabledMethod.invoke(connectivityManager, enabled);
+
+        } catch (Exception ignored) {
         }
+    }
+
+    private Method getMethod(Method[] methods, String methodName) {
+        for (Method method : methods) {
+            System.out.println(method);
+            if (method.getName().equals(methodName)) {
+                return method;
+            }
+        }
+        return null;
     }
 }
